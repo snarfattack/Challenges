@@ -73,7 +73,7 @@ public class CompletedListCommand extends BaseModCommand {
 			Util.Message(header, sender);
 
 			try {
-				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT Max(ID) as ID,Player,ClaimedBy,Max(Level) As Level FROM weekly_completed WHERE State = 0 GROUP BY Player ORDER BY ID ASC LIMIT ?,?");
+				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT Max(ID) as ID,Player,ClaimedBy,Max(Level) As Level FROM weekly_completed WHERE State = 0 GROUP BY Player ORDER BY Level ASC, ID ASC LIMIT ?,?");
 				statement.setInt(1, start);
 				statement.setInt(2, Settings.getInt(Setting.ITEMS_PER_PAGE));
 
@@ -81,9 +81,13 @@ public class CompletedListCommand extends BaseModCommand {
 				while (set.next())
 				{
 					String line = Settings.getString(Setting.MESSAGE_COMPLETED_ENTRY);
-
+					
+					String playerName = set.getString("Player");
+					if (Challenges.instance.getServer().getPlayerExact(playerName) != null) 
+						playerName = "&2"+playerName;
+					
 					line = line.replace("<ID>", Integer.toString(set.getInt("ID")));
-					line = line.replace("<Player>", set.getString("Player"));
+					line = line.replace("<Player>", playerName);
 					line = line.replace("<Level>", Integer.toString(set.getInt("Level")));
 
 					String handledBy = set.getString("ClaimedBy");
@@ -138,15 +142,16 @@ public class CompletedListCommand extends BaseModCommand {
 			}
 			try
 			{
-				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT weekly_levels.WeekID, weekly_levels.Level, weekly_completed.ID, weekly_completed.State FROM weekly_levels LEFT JOIN weekly_completed ON weekly_levels.WeekID == weekly_completed.WeekID AND weekly_levels.Level == weekly_completed.Level AND weekly_completed.Player=? WHERE weekly_levels.WeekID=? ORDER BY weekly_levels.Level ASC");
+				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT weekly_levels.WeekID, weekly_levels.Level, weekly_completed.ID, weekly_completed.State FROM weekly_levels LEFT JOIN weekly_completed ON weekly_levels.WeekID == weekly_completed.WeekID AND weekly_levels.Level == weekly_completed.Level AND LOWER(weekly_completed.Player) = LOWER(?) WHERE weekly_levels.WeekID=? ORDER BY weekly_levels.Level ASC");
 				statement.setString(1, player);
 				statement.setInt(2, week);
 				ResultSet resultSet = statement.executeQuery();
-				String title = Settings.getString(Setting.MESSAGE_MOD_LIST_ENTRIES);
-				title = title.replaceAll("<Player>", player);
-				sender.sendMessage(title);
 				boolean first = true;
 				StringBuilder week_entries = new StringBuilder();
+                String title = Settings.getString(Setting.MESSAGE_MOD_LIST_ENTRIES);
+                title = title.replaceAll("<Player>", player);
+
+                sender.sendMessage(title);
 				while(resultSet.next()) {
 					if (!first) {
 						week_entries.append(ChatColor.GRAY + ", ");
