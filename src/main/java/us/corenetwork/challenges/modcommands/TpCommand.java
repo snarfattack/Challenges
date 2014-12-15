@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
@@ -14,11 +15,7 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import us.corenetwork.challenges.IO;
-import us.corenetwork.challenges.Challenges;
-import us.corenetwork.challenges.Setting;
-import us.corenetwork.challenges.Settings;
-import us.corenetwork.challenges.Util;
+import us.corenetwork.challenges.*;
 
 
 public class TpCommand extends BaseModCommand {
@@ -50,10 +47,10 @@ public class TpCommand extends BaseModCommand {
 		else
 			id = Integer.parseInt(args[0]);
 		
-		UnclaimCommand.unclaimPlayer(((Player) sender).getName());
+		UnclaimCommand.unclaimPlayer(((Player) sender).getUniqueId());
 		
 		try {
-			PreparedStatement statement = IO.getConnection().prepareStatement("SELECT X,Y,Z,WORLD,ClaimedBy,Player,WeekId FROM weekly_completed WHERE ID = ? LIMIT 1");
+			PreparedStatement statement = IO.getConnection().prepareStatement("SELECT X,Y,Z,WORLD,ClaimedBy,Player,WeekId,State FROM weekly_completed WHERE ID = ? LIMIT 1");
 			statement.setInt(1, id);
 			ResultSet set = statement.executeQuery();
 			if (set.next())
@@ -62,11 +59,14 @@ public class TpCommand extends BaseModCommand {
 				int x = set.getInt("X");
 				int y = set.getInt("Y");
 				int z = set.getInt("Z");
+
+				ChallengeState state = ChallengeState.getByCode(set.getInt("State"));
 				
-				String claimedBy = set.getString("ClaimedBy");
-				if (claimedBy != null && !claimedBy.equals(((Player) sender).getName()))
+                UUID claimedBy = Util.getUUIDFromString(set.getString("ClaimedBy"));
+                String modName = Util.getPlayerNameFromUUID(claimedBy);
+                if (claimedBy != null && !claimedBy.equals(((Player) sender).getUniqueId()))
 				{
-					Util.Message(Settings.getString(Setting.MESSAGE_ALREADY_HANDLED).replace("<Mod>", claimedBy), sender);
+					Util.Message(Settings.getString(Setting.MESSAGE_ALREADY_HANDLED).replace("<Mod>", modName), sender);
 				}
 				else
 				{
@@ -94,19 +94,21 @@ public class TpCommand extends BaseModCommand {
 					
 					Util.Message(message, sender);
 					
-					String challengeOwner = set.getString("Player");
+					UUID challengeOwner = Util.getUUIDFromString(set.getString("Player"));
 					int week = set.getInt("WeekId");
 					Util.Message(getPlayerDataString(challengeOwner, week), sender);
 					
 					try
 					{
-						PreparedStatement statement2 = IO.getConnection().prepareStatement("UPDATE weekly_completed SET ClaimedBy=? WHERE ID = ?");
-						statement2.setString(1, player.getName());
-						statement2.setInt(2, id);
-						statement2.executeUpdate();
-						statement2.close();
-						
-						IO.getConnection().commit();
+						if (state == ChallengeState.SUBMITTED) {
+							PreparedStatement statement2 = IO.getConnection().prepareStatement("UPDATE weekly_completed SET ClaimedBy=? WHERE ID = ?");
+							statement2.setString(1, player.getName());
+							statement2.setInt(2, id);
+							statement2.executeUpdate();
+							statement2.close();
+
+							IO.getConnection().commit();
+						}
 					}
 					catch (SQLException e)
 					{
@@ -130,7 +132,7 @@ public class TpCommand extends BaseModCommand {
 		return true;
 	}
 	
-	private String getPlayerDataString(String player, int week) throws SQLException
+	private String getPlayerDataString(UUID player, int week) throws SQLException
 	{
 		String playerData = "";
 		List<Integer> notSubmittedLevels = new ArrayList<Integer>(5);
@@ -151,21 +153,21 @@ public class TpCommand extends BaseModCommand {
 			statement = IO.getConnection().prepareStatement("SELECT state FROM weekly_completed WHERE WeekID = ? AND Level > ? AND Player = ? ORDER BY Level ASC LIMIT 1");
 			statement.setInt(1, week);
 			statement.setInt(2, i);
-			statement.setString(3, player);
+			statement.setString(3, player.toString());
 			
 			set = statement.executeQuery();
 			
 			if (set.next())
 			{
-				int state = set.getInt(1);
+				ChallengeState state = ChallengeState.getByCode(set.getInt(1));
 				
 				
 				switch (state)
 				{
-				case 0:
+				case SUBMITTED:
 					waitingLevels.add(i + 1);
 					break;
-				case 1:
+				case DONE:
 					approvedLevels.add(i + 1);
 					break;
 				default:

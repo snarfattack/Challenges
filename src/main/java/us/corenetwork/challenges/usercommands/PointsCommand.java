@@ -1,13 +1,12 @@
 package us.corenetwork.challenges.usercommands;
 
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import us.corenetwork.challenges.PlayerPoints;
-import us.corenetwork.challenges.PlayerRank;
-import us.corenetwork.challenges.Setting;
-import us.corenetwork.challenges.Settings;
-import us.corenetwork.challenges.Util;
+import us.corenetwork.challenges.*;
+
+import java.util.UUID;
 
 
 public class PointsCommand extends BaseUserCommand {
@@ -21,23 +20,45 @@ public class PointsCommand extends BaseUserCommand {
 
 
 	public Boolean run(CommandSender sender, String[] args) {
-		int points = PlayerPoints.getPoints(((Player) sender).getName());
+		printPoints(sender, ((Player) sender).getUniqueId());
+
+		return true;
+	}
+
+	public static void printPoints(CommandSender sender, UUID player)
+	{
+		int points = PlayerPoints.getPoints(player);
 		PlayerRank curRank = PlayerPoints.getRank(points);
 		PlayerRank nextRank = PlayerPoints.getNextRank(curRank);
-		String message;
+		Message message;
+		boolean needPlayer = !((Player) sender).getUniqueId().equals(player);
 		if (nextRank == null)
-			message = Settings.getString(Setting.MESSAGE_FLATPOINTS);
+		{
+			if (needPlayer)
+			{
+				message = Message.from(Setting.MESSAGE_FLATPOINTS_PLAYER);
+			} else {
+				message = Message.from(Setting.MESSAGE_FLATPOINTS);
+			}
+		}
 		else
 		{
-			message = Settings.getString(Setting.MESSAGE_FLATPOINTS_NEXT_RANK);
-			message = message.replace("<NewRank>", nextRank.rank);
-			message = message.replace("<PointsLeft>", Integer.toString(nextRank.neededPoints - points));
+			if (needPlayer)
+			{
+				message = Message.from(Setting.MESSAGE_FLATPOINTS_NEXT_RANK_PLAYER);
+			}
+			else
+			{
+				message = Message.from(Setting.MESSAGE_FLATPOINTS_NEXT_RANK);
+			}
+			message.variable("NewRank", nextRank.rank);
+			message.variable("PointsLeft", nextRank.neededPoints - points);
 		}
-		message = message.replace("<Points>", Integer.toString(points));
-		message = message.replace("<Rank>", curRank.rank);
+		message.variable("Player", Util.getPlayerNameFromUUID(player));
+		message.variable("PointsPending", PlayerPoints.getPending(player));
+		message.variable("Points", points);
+		message.variable("Rank", curRank.rank);
 
-		Util.Message(message, sender);
-		
-		return true;
+		message.send(sender);
 	}
 }

@@ -5,18 +5,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import us.corenetwork.challenges.IO;
-import us.corenetwork.challenges.Challenges;
-import us.corenetwork.challenges.Setting;
-import us.corenetwork.challenges.Settings;
-import us.corenetwork.challenges.Util;
+import us.corenetwork.challenges.*;
 
 
+@Deprecated
 public class ExplodeCommand extends BaseModCommand {
 	
 	public ExplodeCommand()
@@ -87,7 +85,7 @@ public class ExplodeCommand extends BaseModCommand {
 		return true;
 	}
 	
-	private String getPlayerDataString(String player, int week) throws SQLException
+	private String getPlayerDataString(UUID player, int week) throws SQLException
 	{
 		String playerData = "";
 		List<Integer> notSubmittedLevels = new ArrayList<Integer>(5);
@@ -108,21 +106,21 @@ public class ExplodeCommand extends BaseModCommand {
 			statement = IO.getConnection().prepareStatement("SELECT state FROM weekly_completed WHERE WeekID = ? AND Level > ? AND Player = ? ORDER BY Level ASC LIMIT 1");
 			statement.setInt(1, week);
 			statement.setInt(2, i);
-			statement.setString(3, player);
+			statement.setString(3, player.toString());
 			
 			set = statement.executeQuery();
 			
 			if (set.next())
 			{
-				int state = set.getInt(1);
+				ChallengeState state = ChallengeState.getByCode(set.getInt(1));
 				
 				
 				switch (state)
 				{
-				case 0:
+				case SUBMITTED:
 					waitingLevels.add(i + 1);
 					break;
-				case 1:
+				case DONE:
 					approvedLevels.add(i + 1);
 					break;
 				default:

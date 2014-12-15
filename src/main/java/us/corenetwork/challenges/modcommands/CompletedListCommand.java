@@ -3,25 +3,19 @@ package us.corenetwork.challenges.modcommands;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 import java.util.logging.Level;
-import java.util.regex.Pattern;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 
-import us.corenetwork.challenges.ChallengeState;
-import us.corenetwork.challenges.Challenges;
-import us.corenetwork.challenges.IO;
-import us.corenetwork.challenges.Setting;
-import us.corenetwork.challenges.Settings;
-import us.corenetwork.challenges.Util;
-import us.corenetwork.challenges.WeekUtil;
+import us.corenetwork.challenges.*;
 
 
 public class CompletedListCommand extends BaseModCommand {
 
-	public static final Pattern PAGINATION_PATTERN = Pattern.compile("^\\d+$");
-	
 	public CompletedListCommand()
 	{
 		desc = "List all completed levels needing inspection, or all submitted challenge entries per player";
@@ -31,7 +25,7 @@ public class CompletedListCommand extends BaseModCommand {
 
 
 	public Boolean run(CommandSender sender, String[] args) {
-		if (args.length == 0 || PAGINATION_PATTERN.matcher(args[0]).matches()) {
+		if (args.length == 0 || RegexUtils.PAGINATION_PATTERN.matcher(args[0]).matches()) {
 			return sendAllSubmitted(sender, args);
 		} else if (args.length <= 2) {
 			return sendAllPlayer(sender, args);
@@ -79,9 +73,10 @@ public class CompletedListCommand extends BaseModCommand {
 			Util.Message(header, sender);
 
 			try {
-				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT Max(ID) as ID,Player,ClaimedBy,Max(Level) As Level, WeekID FROM weekly_completed WHERE State = 0 GROUP BY WeekID, Player ORDER BY WeekID ASC, Level ASC, ID ASC LIMIT ?,?");
-				statement.setInt(1, start);
-				statement.setInt(2, Settings.getInt(Setting.ITEMS_PER_PAGE));
+				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT Max(ID) as ID,Player,ClaimedBy,Max(Level) As Level, WeekID FROM weekly_completed WHERE State = ? GROUP BY WeekID, Player ORDER BY WeekID ASC, Level ASC, ID ASC LIMIT ?,?");
+				statement.setInt(1, ChallengeState.SUBMITTED.code());
+				statement.setInt(2, start);
+				statement.setInt(3, Settings.getInt(Setting.ITEMS_PER_PAGE));
 
                 int lastWeek = -1;
 
@@ -100,19 +95,21 @@ public class CompletedListCommand extends BaseModCommand {
                         lastWeek = week;
                     }
 					String line = Settings.getString(Setting.MESSAGE_COMPLETED_ENTRY);
-					
-					String playerName = set.getString("Player");
-					if (Challenges.instance.getServer().getPlayerExact(playerName) != null) 
+
+                    UUID player = Util.getUUIDFromString(set.getString("Player"));
+                    String playerName = Util.getPlayerNameFromUUID(player);
+                    if (Bukkit.getPlayer(player) != null)
 						playerName = "&a"+playerName;
 					
 					line = line.replace("<ID>", Integer.toString(set.getInt("ID")));
 					line = line.replace("<Player>", playerName);
 					line = line.replace("<Level>", Integer.toString(set.getInt("Level")));
 
-					String handledBy = set.getString("ClaimedBy");
-					if (handledBy != null)
+                    UUID handledBy = Util.getUUIDFromString(set.getString("ClaimedBy"));
+                    String modName = Util.getPlayerNameFromUUID(handledBy);
+                    if (handledBy != null)
 					{
-						line = line.replace("<HandledBy>", Settings.getString(Setting.MESSAGE_HANDLED).replace("<Mod>", handledBy));
+						line = line.replace("<HandledBy>", Settings.getString(Setting.MESSAGE_HANDLED).replace("<Mod>", modName));
 					}
 					else
 					{
@@ -154,26 +151,27 @@ public class CompletedListCommand extends BaseModCommand {
 			sender.sendMessage("Usage: /chm list <playername>");
 			return false;
 		} else {
-			String player = args[0];
-			int week = WeekUtil.getCurrentWeek();
+			String playerName = args[0];
+			UUID playerUUID = Util.getUUIDFromString(playerName);
+            int week = WeekUtil.getCurrentWeek();
 			if (args.length >= 2 && Util.isInteger(args[1])) {
 				week = Integer.valueOf(args[1]);
 			}
 			try
 			{
-				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT weekly_levels.WeekID, weekly_levels.Level, weekly_completed.ID, weekly_completed.State FROM weekly_levels LEFT JOIN weekly_completed ON weekly_levels.WeekID == weekly_completed.WeekID AND weekly_levels.Level == weekly_completed.Level AND LOWER(weekly_completed.Player) = LOWER(?) WHERE weekly_levels.WeekID=? ORDER BY weekly_levels.Level ASC");
-				statement.setString(1, player);
+				PreparedStatement statement = IO.getConnection().prepareStatement("SELECT weekly_levels.WeekID, weekly_levels.Level, weekly_completed.ID, weekly_completed.State FROM weekly_levels LEFT JOIN weekly_completed ON weekly_levels.WeekID == weekly_completed.WeekID AND weekly_levels.Level == weekly_completed.Level AND weekly_completed.Player = ? WHERE weekly_levels.WeekID=? ORDER BY weekly_levels.Level ASC");
+				statement.setString(1, playerUUID.toString());
 				statement.setInt(2, week);
 				ResultSet resultSet = statement.executeQuery();
 				boolean first = true;
 				StringBuilder week_entries = new StringBuilder();
                 String title = Settings.getString(Setting.MESSAGE_MOD_LIST_ENTRIES);
-                title = title.replaceAll("<Player>", player);
+                title = title.replaceAll("<Player>", playerName);
 
                 sender.sendMessage(title);
 				while(resultSet.next()) {
 					if (!first) {
-						week_entries.append(ChatColor.GRAY + ", ");
+						week_entries.append(ChatColor.GRAY).append(", ");
 					}
 					first = false;
 					String entry = Settings.getString(Setting.MESSAGE_MOD_LIST_ENTRIES_ENTRY);

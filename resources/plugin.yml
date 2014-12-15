@@ -3,6 +3,7 @@ main: us.corenetwork.challenges.Challenges
 version: 1.0.2
 author: matejdro
 depend: [WorldEdit, WorldGuard, Vault]
+soft-depend: [CoreNotifications]
 commands:
     cha:
         description: Weekly challenges.

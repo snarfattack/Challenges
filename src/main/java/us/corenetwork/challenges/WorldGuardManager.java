@@ -3,13 +3,12 @@ package us.corenetwork.challenges;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-
 import com.sk89q.worldedit.BlockVector;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.databases.ProtectionDatabaseException;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.managers.storage.StorageException;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
@@ -30,10 +29,18 @@ public class WorldGuardManager {
 		region.setFlag(DefaultFlag.CHEST_ACCESS, StateFlag.State.DENY);
 		region.setFlag(DefaultFlag.PISTONS, StateFlag.State.DENY);
 		region.setFlag(DefaultFlag.USE, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.CREEPER_EXPLOSION, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.GHAST_FIREBALL, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.ENDER_BUILD, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.ENTITY_ITEM_FRAME_DESTROY, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.ENTITY_PAINTING_DESTROY, StateFlag.State.DENY);
+        region.setFlag(DefaultFlag.ENDERDRAGON_BLOCK_DAMAGE, StateFlag.State.DENY);
 		manager.addRegion(region);
-		try {
+		try
+		{
 			manager.save();
-		} catch (ProtectionDatabaseException e) {
+		} catch (StorageException e)
+		{
 			e.printStackTrace();
 		}
 	}
@@ -56,13 +63,15 @@ public class WorldGuardManager {
 		
 		if (manager.getRegion(name) == null)
 		{
-			Challenges.log.warning("[Challenges] Trying to delete nonexistant region in world " + world + "! Name: " + name);
+			Challenges.log.warning("[Challenges] Trying to delete nonexistent region in world " + world + "! Name: " + name);
 		}
 		
 		manager.removeRegion(name);
-		try {
+		try
+		{
 			manager.save();
-		} catch (ProtectionDatabaseException e) {
+		} catch (StorageException e)
+		{
 			e.printStackTrace();
 		}
 	}

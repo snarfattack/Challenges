@@ -8,13 +8,7 @@ import java.util.logging.Level;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import us.corenetwork.challenges.IO;
-import us.corenetwork.challenges.Challenges;
-import us.corenetwork.challenges.Setting;
-import us.corenetwork.challenges.Settings;
-import us.corenetwork.challenges.TimePrint;
-import us.corenetwork.challenges.Util;
-import us.corenetwork.challenges.WeekUtil;
+import us.corenetwork.challenges.*;
 
 
 public class AllCommand extends BaseUserCommand {
@@ -32,7 +26,7 @@ public class AllCommand extends BaseUserCommand {
 		header = header.replace("<ID>", Integer.toString(curWeek));
 		
 		long start = WeekUtil.getWeekStart(curWeek);
-		long end = start + WeekUtil.SECONDS_PER_WEEK - 1;
+		long end = WeekUtil.getWeekStart(curWeek + 1);
 		header = header.replace("<From>", TimePrint.formatDate(start));
 		header = header.replace("<To>", TimePrint.formatDate(end));
 		header = header.replace("<Left>", TimePrint.formatSekunde(end - WeekUtil.getCurrentTime()));
@@ -40,7 +34,7 @@ public class AllCommand extends BaseUserCommand {
 		
 		try {
 			PreparedStatement statement = IO.getConnection().prepareStatement("SELECT *, IFNULL((Select State FROM weekly_completed WHERE weekly_completed.WeekID = l.WeekID AND weekly_completed.Level >= l.level AND weekly_completed.player = ? ORDER BY Level ASC LIMIT 1), -1) AS Status FROM weekly_levels l WHERE weekID = ? ORDER BY level");
-			statement.setString(1, ((Player)sender).getName());	
+			statement.setString(1, ((Player)sender).getUniqueId().toString());
 			statement.setInt(2, curWeek);
 			ResultSet set = statement.executeQuery();
 			while (set.next())
@@ -51,10 +45,10 @@ public class AllCommand extends BaseUserCommand {
 				line = line.replace("<Desc>", set.getString("Description"));
 				
 				String status;
-				int state = set.getInt("Status");
-				if (state == 1)
+				ChallengeState state = ChallengeState.getByCode(set.getInt("Status"));
+				if (state == ChallengeState.DONE)
 					status = Settings.getString(Setting.MESSAGE_COMPLETED);
-				else if (state == 0)
+				else if (state == ChallengeState.SUBMITTED)
 					status = Settings.getString(Setting.MESSAGE_WAITING_INSPECTION);
 				else
 				{

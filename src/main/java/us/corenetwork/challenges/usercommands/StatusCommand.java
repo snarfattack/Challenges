@@ -38,8 +38,8 @@ public class StatusCommand extends BaseUserCommand {
         } else {
             week = WeekUtil.getCurrentWeek();
             try {
-                PreparedStatement statement = IO.getConnection().prepareStatement("SELECT WeekID FROM weekly_completed WHERE State = 0 AND Player LIKE ? GROUP BY WeekID ORDER BY WeekID ASC");
-                statement.setString(1, player.getName());
+                PreparedStatement statement = IO.getConnection().prepareStatement("SELECT WeekID FROM weekly_completed WHERE State = 0 AND Player = ? GROUP BY WeekID ORDER BY WeekID ASC");
+                statement.setString(1, player.getUniqueId().toString());
                 ResultSet set = statement.executeQuery();
 
                 while(set.next()) {
@@ -82,7 +82,7 @@ public class StatusCommand extends BaseUserCommand {
             {
                 statement = IO.getConnection().prepareStatement("SELECT * FROM weekly_completed WHERE weekID = ? AND Player = ? ORDER BY Level ASC");
                 statement.setInt(1, week);
-                statement.setString(2, player.getName());
+                statement.setString(2, player.getUniqueId().toString());
 
                 set = statement.executeQuery();
 
@@ -149,7 +149,7 @@ public class StatusCommand extends BaseUserCommand {
 
 
             long start = WeekUtil.getWeekStart(week);
-            long end = start + WeekUtil.SECONDS_PER_WEEK - 1;
+            long end = WeekUtil.getWeekStart(week + 1);
             long left = end - WeekUtil.getCurrentTime();
 
             String header = Settings.getString(end >= WeekUtil.getCurrentTime() ? Setting.MESSAGE_STATUS_HEADER : Setting.MESSAGE_STATUS_HEADER_PAST);

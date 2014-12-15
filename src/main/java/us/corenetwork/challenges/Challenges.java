@@ -1,5 +1,6 @@
 package us.corenetwork.challenges;
 
+import java.io.File;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,33 +17,19 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import us.corenetwork.challenges.admincommands.AdminHelpCommand;
-import us.corenetwork.challenges.admincommands.BaseAdminCommand;
-import us.corenetwork.challenges.admincommands.DeleteLevelCommand;
-import us.corenetwork.challenges.admincommands.EditLevelCommand;
-import us.corenetwork.challenges.admincommands.EditWeekCommand;
-import us.corenetwork.challenges.admincommands.ExitCommand;
-import us.corenetwork.challenges.admincommands.ListCommand;
-import us.corenetwork.challenges.admincommands.ReloadCommand;
-import us.corenetwork.challenges.admincommands.ResumeCommand;
-import us.corenetwork.challenges.admincommands.SetTimeCommand;
-import us.corenetwork.challenges.admincommands.StopCommand;
-import us.corenetwork.challenges.modcommands.BaseModCommand;
-import us.corenetwork.challenges.modcommands.CompleteCommand;
-import us.corenetwork.challenges.modcommands.CompletedListCommand;
-import us.corenetwork.challenges.modcommands.DenyCommand;
-import us.corenetwork.challenges.modcommands.ExplodeCommand;
-import us.corenetwork.challenges.modcommands.LockCommand;
-import us.corenetwork.challenges.modcommands.ModHelpCommand;
-import us.corenetwork.challenges.modcommands.ModPointsCommand;
-import us.corenetwork.challenges.modcommands.TpCommand;
-import us.corenetwork.challenges.modcommands.UnclaimCommand;
-import us.corenetwork.challenges.modcommands.UncompleteCommand;
+import us.corenetwork.challenges.admincommands.*;
+import us.corenetwork.challenges.admincommands.SaveCommand;
+import org.joda.time.DateTime;
+import org.joda.time.Weeks;
+import us.corenetwork.challenges.admincommands.*;
+import us.corenetwork.challenges.admincommands.SaveCommand;
+import us.corenetwork.challenges.modcommands.*;
 import us.corenetwork.challenges.usercommands.AllCommand;
 import us.corenetwork.challenges.usercommands.BaseUserCommand;
 import us.corenetwork.challenges.usercommands.ChCommand;
@@ -90,6 +77,8 @@ public class Challenges extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		IO.freeConnection();
+		File userCache = new File(Challenges.instance.getDataFolder(), "usercache.yml");
+		Util.saveUserCache(userCache);
 	}
 
 	@Override
@@ -98,10 +87,13 @@ public class Challenges extends JavaPlugin {
 		listener = new ChallengesListener();
 		log = getLogger();
 
-		Util.replaceAllHandlers(getLogger(), new Util.PluginLoggerHandler(this));
+        if (!getDataFolder().exists()) {
+            getDataFolder().mkdirs();
+        }
 
-		IO.LoadSettings();
 		IO.PrepareDB();
+		IO.LoadSettings();
+
 
 		if (!setupPermissions())
 		{
@@ -134,8 +126,7 @@ public class Challenges extends JavaPlugin {
 		adminCommands.put("editlevel", new EditLevelCommand());
 		adminCommands.put("createlevel", new EditLevelCommand());
 		adminCommands.put("deletelevel", new DeleteLevelCommand());
-		adminCommands.put("exit", new ExitCommand());
-		adminCommands.put("save", new ExitCommand());
+		adminCommands.put("save", new SaveCommand());
 		adminCommands.put("reload", new ReloadCommand());
 		adminCommands.put("stop", new StopCommand());
 		adminCommands.put("resume", new ResumeCommand());
@@ -151,6 +142,10 @@ public class Challenges extends JavaPlugin {
 		modCommands.put("explode", new ExplodeCommand());
 		modCommands.put("unclaim", new UnclaimCommand());
 		modCommands.put("undo", new UncompleteCommand());
+		modCommands.put("top", new ModTopCommand());
+		modCommands.put("history", new HistoryCommand());
+		modCommands.put("blame", new BlameCommand());
+		modCommands.put("all", new PrintAllSubmissionsCommand());
 
 		//DEBUG COMMANDS
 		
@@ -232,16 +227,16 @@ public class Challenges extends JavaPlugin {
 			
 			int curWeek = WeekUtil.getCurrentWeek();
 			
-			if (WeekUtil.getCurrentTime() - WeekUtil.getWeekStart(curWeek) > WeekUtil.SECONDS_PER_WEEK)
+			if (WeekUtil.getWeekStart(curWeek + 1) < System.currentTimeMillis() / 1000)
 			{
 				curWeek++;
 				Challenges.log.info("New week " + curWeek + "!");
-				IO.config.set(Setting.CURRENT_WEEK.getString(), curWeek);
-				IO.config.set(Setting.CURRENT_WEEK_START.getString(), Settings.getLong(Setting.CURRENT_WEEK_START) + WeekUtil.SECONDS_PER_WEEK);
+				YamlConfiguration config = SettingType.STORAGE.getConfig();
+				config.set(Setting.CURRENT_WEEK.getString(), curWeek);
+				config.set(Setting.CURRENT_WEEK_START.getString(), WeekUtil.getWeekStart(curWeek + 1)); // + 1 because the offset is needed.
 				IO.saveConfig();
-				
-				for (Player p : Bukkit.getServer().getOnlinePlayers())
-					Util.Message(Settings.getString(Setting.MESSAGE_NEW_CHALLENGE_ANNOUNCEMENT), p);
+
+				Util.Broadcast(Settings.getString(Setting.MESSAGE_NEW_CHALLENGE_ANNOUNCEMENT), "");
 						
 				try {
 					PreparedStatement statement = IO.getConnection().prepareStatement("SELECT WGRegion, WGWorld FROM weekly_completed WHERE WGRegion IS NOT NULL AND WeekID < ?");
@@ -291,7 +286,9 @@ public class Challenges extends JavaPlugin {
 		
 		private static long getNextTime()
 		{
-			long timeLeft = WeekUtil.SECONDS_PER_WEEK - (WeekUtil.getCurrentTime() - WeekUtil.getWeekStart(WeekUtil.getCurrentWeek()));
+			DateTime nextWeekStart = new DateTime().withMillis(WeekUtil.getWeekStart(WeekUtil.getCurrentWeek() + 1) * 1000);
+			long timeLeft = nextWeekStart.getMillis() - System.currentTimeMillis();
+			timeLeft /= 1000; // convert to seconds
 			if (timeLeft < 5)
 				return 1;
 			else if (timeLeft < 20)

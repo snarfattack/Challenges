@@ -5,6 +5,8 @@ package us.corenetwork.challenges;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+;
+
 public enum Setting {
 
     SWITCH_TIME_OFFSET("SwitchTimeOffset", 3600 * 19 + 3600 * 24 * 6),
@@ -12,9 +14,10 @@ public enum Setting {
     PROTECTED_GROUPS("ProtectedGroups", Arrays.asList(new String[]{"Guardian"})),
     ITEMS_PER_PAGE("ItemsPerPage", 10),
     DEBUG_MODE("DebugMode", false),
-    CURRENT_WEEK("CurrentWeek", 1),
-    CURRENT_WEEK_START("CurrentWeekStart", null),
-    STOPPED("Stopped", false),
+    CURRENT_WEEK("CurrentWeek", 1, SettingType.STORAGE),
+    CURRENT_WEEK_START("CurrentWeekStart", null, SettingType.STORAGE),
+    STOPPED("Stopped", false, SettingType.STORAGE),
+    FIRST_WEEK_START("FirstWeekStart", "Sun, 18:00"),
     MESSAGE_NO_PERMISSION("Messages.NoPermssion", "&cYou are not allowed to do that."),
     MESSAGE_LIST_WEEKS_HEADER("Messages.ListWeeksHeader", "&6ID &2START DATE &7STATUS [NEWLINE] &8---------------------------------"),
     MESSAGE_LIST_WEEKS_ENTRY("Messages.ListWeeksEntry", "&6#<ID> &2<Date> &7<Status>"),
@@ -97,8 +100,10 @@ public enum Setting {
     MESSAGE_PLAYER_POINTS("Messages.PlayerPoints", "&6Player &7<Player>&6 has &7<Points>&6 points and <PendingPoints> pending."),
     MESSAGE_PLAYER_POINTS_ALTERED("Messages.PlayerPointsAltered", "&6Changed points for &7<Player>&6 by &7<Change>&6."),
     MESSAGE_REASON_COMPLETE("Messages.ReasonComplete", "&bCompleted &e[Level <Level>] &bof Challenge #<Week>."),
-    MESSAGE_FLATPOINTS("Messages.FlatPoints", "&aYou have &6<Points>&a points. Your rank: &6<Rank>&a."),
-    MESSAGE_FLATPOINTS_NEXT_RANK("Messages.FlatPointsNextRank", "&aYou have &6<Points>&a points. Your rank: &6<Rank>&a. [NEWLINE] You need &6<PointsLeft>&a more points to get &6<NewRank>&a."),
+    MESSAGE_FLATPOINTS("Messages.FlatPoints", "&aYou have &6<Points>&a points. [NEWLINE]Your rank is &7<Rank>&6."),
+    MESSAGE_FLATPOINTS_NEXT_RANK("Messages.FlatPointsNextRank", "&aYou have &6<Points>&a points. Your rank: &6<Rank>&a. [NEWLINE] You need &6<PointsLeft>&a more points to get &7<NewRank>&6."),
+	MESSAGE_FLATPOINTS_PLAYER("Messages.FlatPointsPlayer", "&6Player &7<Player>&6 has &7<Points>&6 points and &7<PointsPending>&6 pending. [NEWLINE]&6Their rank is &7<Rank>&6."),
+	MESSAGE_FLATPOINTS_NEXT_RANK_PLAYER("Messages.FlatPointsNextRankPlayer", "&6Player &7<Player>&6 has &7<Points>&6 points and &7<PointsPending>&6 pending. [NEWLINE] &6Their rank is &7<Rank> &6and they need &7<PointsLeft> &6to rank up to &6<NewRank>&6."),
     MESSAGE_USING_PREVIOUS_ID("Messages.UsingPreviousId", "&6Using ID from last teleport: &7<ID>&6."),
     MESSAGE_EXPLODE_ENTRY("Messages.ExplodeEntry", "&6Level <Level>: &7/chm tp <ID>"),
     MESSAGE_SUBMISSION_UNCLAIMED("Messages.SubmissionUnclaimed", "&6Submission is not handled by anyone anymore."),
@@ -123,6 +128,17 @@ public enum Setting {
     MESSAGE_MOD_UNDO_SUMMARY("Messages.ModUndo.Summary", "Undone <Levels> levels from <Player>, total of <Points> points"),
     MESSAGE_MOD_UNDO_NOT_FOUND("Messages.ModUndo.NotFound", "No challenges found to undo"),
     MESSAGE_TOP_HEADER("Messages.TopHeader", "Player              Points  Pending"),
+	MESSAGE_MOD_HISTORY_HEADER("Messages.ModHistory.Header", "Challenge edit history[NEWLINE]&8---------------------------------"),
+	MESSAGE_MOD_HISTORY_HEADER_PLAYER("Messages.ModHistory.HeaderPlayer", "Challenge edit history for <Player>[NEWLINE]&8---------------------------------"),
+	MESSAGE_MOD_HISTORY_ENTRY("Messages.ModHistory.Entry", "&b#<ID> Level <Level> <State>&7, <time> ago"),
+	MESSAGE_MOD_HISTORY_ENTRY_PLAYER("Messages.ModHistory.EntryPlayer", "&b#<ID> Level <Level> <State> &7by <moderator>, <time> ago"),
+	MESSAGE_MOD_TOP_HEADER("Messages.ModTop.Header", "Challenge edits rank list[NEWLINE]&8---------------------------------"),
+	MESSAGE_MOD_TOP_ENTRY("Messages.ModTop.Entry", "#<Rank> <Player> <Edits>"),
+	MESSAGE_MOD_UNCLAIM("Messages.ModUnclaim.Unclaim", "&6Your claim for a submission has been released."),
+	MESSAGE_MOD_UNCLAIM_ID("Messages.ModUnclaim.UnclaimId", "&6A claim for submission &7<ID>&6 has been released."),
+	MESSAGE_MOD_ALL_SUBMISSIONS("Messages.ModSubmissions.List", "&6All accepted submissions for level &7<Level>&6 in week &7<Week>&6:[NEWLINE]<List>"),
+	MESSAGE_MOD_ALL_SUBMISSIONS_NONE("Message.ModSubmissions.NotFound", "&6No accepted submissions for level &7<Level>&6 in week &7<Week>&6 found."),
+    MESSAGE_DEBUG_MODE("MessageDebug", false),
     COLOR_NOT_SUBMITTED("Colors.ChallengeState.NotSubmitted", "&8"),
     COLOR_SUBMITTED("Colors.ChallengeState.Submitted", "&6"),
     COLOR_ACCEPTED("Colors.ChallengeState.Accepted", "&e"),
@@ -152,22 +168,39 @@ public enum Setting {
     TOP_NAME_COLUMN_DISPLAY("Top.Name.Display", "<Player>"),
     TOP_NAME_COLUMN_COLOR("Top.Name.Color", "&r"),
     RUN_COMMAND_ON_RANK_UP("RunCommandOnRankUp", false),
-    COMMAND_ON_RANK_UP("CommandOnRankUp", "crankreload");
+    COMMAND_ON_RANK_UP("CommandOnRankUp", "crankreload"),
+	GROUPMANAGER_USERS_FILE("GroupManager.UsersYml", "plugins/GroupManager/worlds/world/users.yml"),
 
-    private String name;
+    STORAGE_VERSION("StorageVersion", 0, SettingType.STORAGE);
+
+	private SettingType type;
+
+	private String name;
 
     private Object def;
 
     private Setting(String Name, Object Def) {
         name = Name;
         def = Def;
+	    this.type = SettingType.CONFIG;
     }
 
-    public String getString() {
+	private Setting(String Name, Object Def, SettingType type) {
+		name = Name;
+		def = Def;
+		this.type = type;
+	}
+
+	public String getString() {
         return name;
     }
 
     public Object getDefault() {
         return def;
     }
+
+	public SettingType getSettingType()
+	{
+		return type;
+	}
 }
