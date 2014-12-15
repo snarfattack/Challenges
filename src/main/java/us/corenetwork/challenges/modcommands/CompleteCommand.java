@@ -95,8 +95,13 @@ public class CompleteCommand extends BaseModCommand {
 		}
 
         if (week != WeekUtil.getCurrentWeek() && sender instanceof Player) {
-            // clear WorldEdit selection so it doesn't accidentally get locked.
-            WorldEditHandler.clearSelection((Player) sender);
+    		try {
+    			// clear WorldEdit selection so it doesn't accidentally get locked.
+    			WorldEditHandler.clearSelection((Player) sender);
+    		}
+    		catch (Exception e) {
+    			e.printStackTrace();
+    		}
         }
 		
 		if (points == 0)
